@@ -1,0 +1,6 @@
+#!/bin/sh
+
+wine /win/usr/games/heroes2/heroes2w.exe 
+
+
+
