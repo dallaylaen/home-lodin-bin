@@ -1,0 +1,13 @@
+#!/bin/sh 
+
+while read ;do
+     (echo "	started $REPLY"; eval $REPLY ; echo "	done $REPLY") &
+done
+
+echo "	all started"
+
+wait 
+
+echo "	all done"
+
+
