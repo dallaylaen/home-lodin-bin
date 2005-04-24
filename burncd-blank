@@ -1,0 +1,5 @@
+#!/bin/sh
+
+DEV='0,0,0'
+
+cdrecord -v -dev=$DEV -blank=fast
