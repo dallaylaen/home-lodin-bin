@@ -1,0 +1,12 @@
+#!/bin/sh
+
+DEV='0,0,0'
+MULTI=`cdrecord -msinfo -dev=$DEV 2>/dev/null`
+
+if [ "$MULTI" == "" ]; then
+	echo -e "\n\n ***** Starting new cd ***** \n\n"
+	mkjoliet "$@" | cdrecord -v -dev=$DEV -waiti -multi -
+else 
+	mkjoliet -M $DEV -C $MULTI "$@" | cdrecord -v -dev=$DEV -waiti -multi -
+fi
+
