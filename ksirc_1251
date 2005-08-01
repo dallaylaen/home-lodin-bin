@@ -1,0 +1,7 @@
+#!/bin/sh
+
+export LC_MONETARY=ru_RU.CP1251 
+export LC_CTYPE=ru_RU.CP1251 
+export LC_COLLATE=ru_RU.CP1251 
+
+ksirc
