@@ -1,0 +1,9 @@
+#!/usr/bin/perl -w
+
+while (my $i=shift) {
+	chomp $i; 
+	my $j=`echo $i | iconv -t koi8-r -f CP1251 -c`; 
+	chomp $j; 
+	rename($i, $j) if $i ne $j;
+};
+
