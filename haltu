@@ -1,0 +1,17 @@
+#!/bin/sh
+
+i=11
+# i=5;
+
+echo "The system is to be halted!"
+echo "You have $i seconds to cancel!"
+
+while [ $i -gt 0 ]; do
+	echo -ne "\b\b  \b\b$i";
+	sleep 1;
+	i=$(($i-1));
+done
+echo
+echo "Halting system..."
+
+halt
