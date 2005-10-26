@@ -1,0 +1,6 @@
+#!/bin/sh
+
+for i in $@; do
+	iconv -f koi8-r -t windows-1251 -c $i >$i.win
+
+done
