@@ -1,0 +1,13 @@
+#!/bin/sh
+
+if [ "x$2" == x ]; then 
+	cat <<EOF
+	Usage: $0 <source> <file mask>
+EOF
+	exit 1
+fi
+
+# BASE=`echo $1 | sed 's/[^\/]*\?//'`
+
+wget -O- "$1" | wget -i- --force-html -B $1 -c -x -r -l1 -A "$2"
+
