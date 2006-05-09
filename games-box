@@ -1,0 +1,10 @@
+#!/bin/sh
+
+X -gamma 2 -ac :1.0 -nolisten tcp & 
+
+export DISPLAY=":1.0" 
+
+sleep 7
+xterm -e dosbox -fullscreen /F &
+# xbindkeys
+
