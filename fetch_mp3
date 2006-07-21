@@ -1,0 +1,12 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my $input = `wget -O- "$ARGV[0]"`;
+
+my $ext = "(mp3|ogg|wma)";
+
+while ($input =~ s:.*?(http\://\S+\.$ext)::i) {
+	print "$1\n";
+};
+
