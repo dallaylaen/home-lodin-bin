@@ -1,0 +1,3 @@
+#!/bin/sh
+
+ssh -C -X kuvarin@mail.jnetx.ru   $*
