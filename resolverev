@@ -1,0 +1,4 @@
+#!/bin/sh
+
+resolveip -s $* | xargs -r resolveip 
+
