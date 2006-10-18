@@ -1,0 +1,7 @@
+#!/bin/sh
+
+cat <<EOF >>~/bin/au-log
+[`date`] aumix $*
+EOF
+
+aumix $*
