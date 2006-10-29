@@ -1,0 +1,12 @@
+#!/bin/sh
+
+DEV='/dev/hdb'
+MULTI=`cdrecord -msinfo -dev=$DEV 2>/dev/null`
+OPTIONS=" -v -dev=$DEV -waiti -speed=24 -driveropts=burnfree"
+
+if [ "$MULTI" == "" ] ; then
+	mkjoliet "$@" | cdrecord $OPTIONS  -
+else 
+	mkjoliet -M $DEV -C $MULTI "$@" | cdrecord $OPTIONS  -
+fi
+
