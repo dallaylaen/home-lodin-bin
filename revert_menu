@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# for conf in keys menu preferences toolbar winoptions; do
+for conf in menu ; do
+
+	file="$HOME/.icewm/$conf"
+
+	echo $file
+	if [ -f $file ]; then 
+	
+		if head $file | grep -m 1  -s -i -E '^\s*\#.*by' ; then
+			cp -u $file $file.lodin
+		else
+			cp -f $file $file.default
+			cp -f $file.lodin $file
+		fi
+	
+	fi
+
+done
+
+	
