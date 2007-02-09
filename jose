@@ -1,0 +1,4 @@
+#!/bin/sh
+
+cd /yard/compile/games/chess/jose
+./jose.sh
