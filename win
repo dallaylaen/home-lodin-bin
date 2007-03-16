@@ -1,0 +1,7 @@
+#!/bin/sh
+
+export LC_ALL=ru_RU.CP1251
+export LANG=ru_RU.CP1251
+
+exec "$@"
+
