@@ -1,0 +1,23 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my @kbmap = ('de', 'ru', 'us,ru');
+
+my $i = 0;
+
+$SIG{HUP}=sub {
+	print ("setxkbmap $kbmap[$i]\n");
+	system ("setxkbmap $kbmap[$i]");
+	$i = ($i + 1) % @kbmap;
+};
+
+print "$$\n";
+
+while (1) {
+    sleep 60;
+};
+
+END{
+        system ("setxkbmap us,ru");	
+}
