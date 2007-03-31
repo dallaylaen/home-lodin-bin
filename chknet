@@ -1,0 +1,56 @@
+#!/bin/sh
+
+ns1="ns"
+ns2="ns2"
+gw="gate"
+inet="vpn.starlink.ru"
+
+hosts='google.ru google.com mail.ru linux.org.ru microsoft.com ya.ru livejournal.com lib.ru corbina.net'
+
+function chkhost () {
+	ping -c2 -w2 "$1" >/dev/null 2>&1 
+}
+
+function chk_all () {
+	for i in "$@"; do
+		ping -c 4 -w 10 "$i" 2>/dev/null &
+	done | grep -q 'bytes from'
+}
+
+
+if chkhost $ns1 || chkhost $ns2; then
+ ## ns seems OK
+	echo "Name server OK"
+
+	if chk_all $hosts; then
+		echo "Inet works"
+		exit 0;
+	fi
+
+	if chkhost $inet; then
+		echo "Outer gateway OK"
+		echo "Inet empty" 
+		exit 1;
+	else
+		echo "Outer gateway lost"
+		exit 2;
+	fi
+else
+ ## no ns
+	echo "Name server lost"
+	if chkhost $gw; then
+		echo "Inner gateway OK"
+		exit 3;
+	else
+		echo "Inner gateway lost"
+		
+		if sh who_arp.sh; then
+			echo "Segment present"
+			exit 4
+		else
+			echo "No network at all"
+			exit 5
+		fi
+	fi	
+fi
+
