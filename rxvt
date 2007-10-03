@@ -1,0 +1,5 @@
+#!/bin/sh
+
+xterm -bg black -cr green -fg grey -b 6 -bd white -C $*
+
+# urxvt -bg black -cr green -fg grey -b 6 -bd white -C $*
