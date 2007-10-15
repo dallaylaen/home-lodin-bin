@@ -1,0 +1,7 @@
+#!/bin/sh
+
+for i in "$@"; do
+	# converts to current locale
+	iconv -f windows-1251 -c -- $i >$i.koi
+done
+
