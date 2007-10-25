@@ -1,0 +1,9 @@
+#!/bin/sh
+
+TAIL=$2
+[ "$TAIL" == "" ] && TAIL=20
+
+SIM=~/.kde/share/apps/sim
+
+tail -n 250 $SIM/*/history/*.$1 | egrep -i '^Text="|^Flags=' | tail -n 20 | iconv -c -f cp1251 |\
+	 sed 's/^text="//i; s/"$//; s/<[^>]*>//g; s/&quot;/"/g; s/&nbsp;/ /g; s/\\n/\n/g;'
