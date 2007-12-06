@@ -1,0 +1,64 @@
+#!/usr/bin/perl -w 
+
+
+=head1
+
+OPTIONS
+        -a artist       Specify ID3 artist name
+        -c comment      Specify ID3 comment
+        -g genre        Specify ID3 genre (use -G for genre list)
+        -l album        Specify ID3 album name
+        -n track        Specify ID3 v1.1 track number
+        -t title        Specify ID3 track title
+        -y year         Specify ID3 copyright year						
+
+=cut
+
+use strict;
+
+my %options = (
+	'author', '-a',
+	'artist', '-a',
+	'comment', '-c',
+	'genre', '-g',
+	'album', '-l',
+	'track', '-n',
+	'year', '-y'
+);
+
+my %parm = ();
+
+
+my $track = 1;
+while (<>) {
+	chomp;
+	
+	if (/^([a-z0-9]+)=(.*)$/i) {
+		$parm{$1}=$2;
+		next;
+	};
+	
+	if (/^\s*(\S+)\s+(.*)$/) {
+		my $file = $1;
+		my $title = $2;
+		
+		next unless -f $file;
+		
+		link $file, $title.'.mp3';
+				
+		# print "\t$file exists and writeable, good\n";
+		
+		my @opt = ();
+		foreach my $i (keys %options) {
+			next unless defined $parm{$i};
+			
+			push @opt, $options{$i}, $parm{$i};
+		};
+		
+		system 'echo', "mp3info", "-t '$title'", @opt, $file;
+		system "mp3info", '-t', $title, "-n $track", @opt, $file;
+		$track ++;
+	};
+};
+
+
