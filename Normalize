@@ -1,0 +1,12 @@
+#!/bin/sh
+
+export LC_ALL=C
+
+if test "$2" == ""; then
+	echo "usage: $0 <src> <dest>"
+	exit 1
+fi
+
+adj=`sox $1 -e stat 2>&1 | grep ^Volume | cut -f2 -d\:`
+
+sox $1 $2 vol 0.9 vol $adj 
