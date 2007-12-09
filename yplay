@@ -1,0 +1,4 @@
+#!/bin/sh
+mpc clear
+mpc search filename $* | mpc add -
+mpc play 1
