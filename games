@@ -1,0 +1,14 @@
+#!/bin/sh
+
+cd ~/bin
+
+#  X -gamma 2 -ac :1.0 -nolisten tcp -config xorg.conf.dosemu & 
+X -gamma 2 -ac :1.0 -nolisten tcp  $* &
+
+
+export DISPLAY=":1.0" 
+
+sleep 7
+xterm -e dosemu -X -w &
+xbindkeys
+
