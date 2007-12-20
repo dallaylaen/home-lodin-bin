@@ -1,0 +1,17 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+while (<>) {
+	s/^\./$ENV{PWD}/;
+	s:^~(/|$):$ENV{HOME}/:;
+
+	s/([^:a-zA-Z0-9\-\.\_\/\?\=\&\n])/'%'.phex($1)/ge;
+	print;
+};
+
+sub phex {
+	my $x = sprintf ("00%x", ord $_[0]);
+	$x =~ /(..)$/;
+	return $1; 
+};
