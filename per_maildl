@@ -1,0 +1,51 @@
+#!/bin/sh
+
+#periodic mail check
+
+DIR="$HOME/.maildl/periodic"
+LOG="$DIR/log"
+LOCK="$DIR/lock"
+INT=600 # check every 10 minutes
+
+# nohup support
+
+if [ "$1" != hup ]; then
+	nohup sh $0 hup $* >>$LOG 2>&1 &
+	exit
+fi
+
+shift
+
+if ! mkdir -p $DIR; then
+	echo "Check working directory $DIR"
+	exit 1;
+fi 
+cd $DIR
+
+# check lock
+
+if test -f $LOCK && ps `egrep -o '[0-9]+' $LOCK` ; then
+	echo "Already running; remove lock file $LOCK"
+	exit 1;
+fi
+echo $$ > $LOCK
+
+# open log
+# fork into bg
+
+# while (1)
+(
+while :; do 
+	# exec maildl
+	(
+	date 
+	maildl || echo "See log at $LOG" |\
+		mail $USER -s "Periodic mail d/l failed"
+	) &
+	# sleep 
+
+	sleep $INT
+done 
+) </dev/null >>$LOG 2>&1 
+
+
