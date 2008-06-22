@@ -1,0 +1,56 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my $re_var = "[a-zA-Z_][a-zA-Z0-9_\-]*";
+
+# process tag
+my %tag = ();
+my $key;
+
+# my $line=0;
+
+while (<STDIN>) {
+# 	$line++;
+	chomp;
+	s/\x0d//gs;
+
+	# tag stops here
+	/^\s*$/ and last;
+
+	# allow multiline headers
+	if (/^\s+(.*)$/ ) {
+		$tag{$key} = $tag{$key} . $1 if (defined $key);
+	} else {
+
+		# process {key}: {value} pairs
+		# and remember the key for the next string
+		/^($re_var): (.*)$/ or next;
+
+		$key = lc $1;
+		$tag{$key} = $2;	
+	};
+};
+
+# print STDERR "read $line lines\n";
+
+while (<STDIN>) {
+	/^(\s|$)/ and next;
+	chomp;
+	$tag{'--firstline'} = $_;
+	last;
+}
+
+my $ret = 0;
+while ($key = lc shift) {
+	if (defined $tag{$key}) {
+		print "$tag{$key}\n";
+	} else {
+		print "\n";
+		$ret++;
+	};
+};
+
+exit $ret;
+
+
