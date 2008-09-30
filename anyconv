@@ -1,0 +1,21 @@
+#!/bin/sh
+
+CODE="utf-8 cp1251 koi8-r latin1"
+RUSMALL="[абвгдеёжзийклнмопрстуфхцчшщъыьэюя]"
+RUSMALL="$RUSMALL$RUSMALL *$RUSMALL$RUSMALL"
+
+function conv1 () {
+	F=$1
+	T=$2
+	[ "$T" == "$F" ] && cat || iconv -f "$F" -t "$T" 2>/dev/null
+}
+
+while read say; do 
+	for i in $CODE; do
+		for j in $CODE; do
+			echo "$say" | conv1 utf-8 $i | conv1 $j utf-8 |\
+			grep "$RUSMALL" && break 2 
+		done
+	done ||\
+	echo "$say"
+done
