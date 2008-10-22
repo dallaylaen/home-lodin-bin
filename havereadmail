@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# return "user has read mail in 15 minutes" 
+
+MAIL=/var/mail/$USER
+
+ATIME=$(( `date +%s` - `stat -c %X $MAIL` ))
+
+# echo $ATIME 
+
+[ $ATIME -le 900 ] 
