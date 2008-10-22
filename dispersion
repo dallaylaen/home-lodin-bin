@@ -1,0 +1,22 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my $re_n = '(?:-?\d+(?:\.\d*)?(?:[eE][\+\-]\d+)?)';
+# my $re_n = '(?:-?\d+)';
+
+my ($s, $s2, $n) = (0, 0, 0);
+
+while (<>) {
+	while (m,($re_n),g) {
+		$s += $1;
+		$s2 += $1 * $1;
+		$n++;
+	};
+};
+
+exit 0 if $n == 0;
+my $avg = $s/$n;
+my $disp = sqrt ($s2/$n - $avg*$avg);
+
+print "n=$n; avg=$avg +- $disp\n";
