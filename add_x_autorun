@@ -1,0 +1,22 @@
+#!/bin/sh
+
+DIR=~/.xsession.d
+
+CMD=$1
+FILE="$DIR/$CMD"
+
+if [ \! -f "$FILE" ]; then
+	shift
+	if [ \! -z "$*" ]; then
+		CMD="$*"
+	fi
+	(
+	echo "#!/bin/sh"
+	echo 
+	echo "$CMD"
+	) > $FILE
+	chmod a+x $FILE
+else
+	echo "sorry, $FILE exists"
+	exit 1
+fi
