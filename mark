@@ -1,0 +1,80 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my $list_path = $ENV{HOME} . '/.mark';
+my %list;
+
+if (!defined $ARGV[0]) {
+	exit 1;
+};
+
+if ($ARGV[0] eq '--clear') {
+	unlink $list_path or die $!;
+	exit (0);
+};
+
+read_list ($list_path);
+
+if ($ARGV[0] eq '--list') {
+	save_list ();
+	exit (0);
+};
+
+if ($ARGV[0] eq '--del') {
+	del_list (@ARGV);
+	exit (0);
+};
+
+
+add_list (@ARGV);
+
+sub read_list {
+	if (open (my $fd, "<", shift)) {
+		while (defined (my $i = <$fd>)) {
+			chomp $i; 
+			$list{$i}++;
+		};
+		close $fd;
+		return 1;
+	};
+}
+
+sub save_list {
+	my $fname = shift;
+	my $fd;
+
+	if (defined $fname) {
+		open ($fd, ">", $fname);
+	} else {
+		$fd = \*STDOUT;
+	};
+	
+	if ($fd) {
+		foreach my $i (sort keys %list) {
+			print $fd "$i\n";
+		};
+		close $fd;
+		return 1;
+	};
+};
+
+sub add_list {
+	if (open (my $fd, ">>", $list_path)) {	
+		foreach my $i (@_) {
+			print $fd `readlink -f "$i"`;
+		};
+	} else {	
+		die $!;
+	};
+};
+
+sub del_list {
+	foreach my $i (@_) {
+		delete $list{$i};
+	};
+	save_list ($list_path);
+};
+
+
+
