@@ -1,0 +1,11 @@
+#!/bin/sh
+
+if [ \! -z "$1" ]; then
+	cd $1 || exit 1
+fi
+
+pwd -P
+
+/bin/ls -1 | nice xargs --delimiter '\n' du -s -c -m -x -- | sort -n | tail -n 15
+
+df . -h
