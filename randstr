@@ -1,0 +1,14 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my $s;
+my $i = 0;
+
+while (<STDIN>) {
+	chomp;
+	int (rand() * ++$i) == 0 and $s = $_;
+};
+
+print "$s\n";
+
