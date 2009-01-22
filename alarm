@@ -1,0 +1,17 @@
+#!/bin/sh
+
+time=$(($1 * 60));
+shift;
+# echo $time
+
+((
+sleep $time
+(
+	snd-bell 2>/dev/null &
+	exec "$@"
+) 2>&1 |\
+if read i; then
+	(echo "$i"; cat) |\
+	mail $USER -s "Output form alarm job on `date`"
+fi
+)</dev/null & )
