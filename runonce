@@ -1,0 +1,11 @@
+#!/bin/sh
+
+PROG=`which $1`
+
+if [ -z "$PROG" ] || pidof "$PROG" >/dev/null ; then
+	echo >&2 "Already running: $PROG"
+	:;
+else
+	exec "$@"
+fi
+
