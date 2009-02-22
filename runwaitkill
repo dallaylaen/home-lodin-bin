@@ -1,0 +1,29 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my $time = shift;
+die "usage: $0 <time> <command>" unless $time =~ /^\s*\d+\s*$/s;
+
+$SIG{CHLD} = sub { print STDERR "finished\n"; exit; };
+# $SIG{TERM} = 'IGNORE';
+
+my $pid = fork;
+die "can't fork" unless defined $pid;
+
+if ($pid) {
+	# parent 
+	sleep $time;
+	print STDERR "Time is up, kill $pid\n";
+	kill -15, $pid;
+	sleep 2;
+	print STDERR "Didn't help, kill -9 $pid\n";
+	kill -9, $pid;
+	# parent ends here
+} else {
+	#child
+ 	setpgrp 0, 0;
+	exec @ARGV;
+	#child ends here
+};
+
