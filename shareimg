@@ -1,0 +1,19 @@
+#!/bin/sh
+
+SHARE=/var/www/html/share
+PREFIX=http://khedin.starlink.ru/share
+
+SHARE="$SHARE/img"
+PREFIX="$PREFIX/img"
+SIZE=200
+
+for i in "$@"; do
+	NAME=`basename "$i" | sed 's/  */_/g; ' | (trlit || cat ) |  tr '[:upper:]' '[:lower:]'`
+	RL=`readlink -f "$i"`
+	THUMB=`echo "$NAME" | sed 's/\(\..\{1,4\}\)\?$/-small.jpg/'`
+
+	convert -resize "$SIZE" "$RL" "$SHARE/$THUMB" &&\
+	cp -rTfu "$RL" "$SHARE/$NAME" &&\
+	echo "<a href=\"$PREFIX/$NAME\"><img src=\"$PREFIX/$THUMB\" alt=\"`basename $i`\"></a>"
+done
+
