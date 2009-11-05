@@ -1,0 +1,32 @@
+#!/bin/sh
+
+SHARE=/var/www/html/share
+PREFIX=http://khedin.starlink.ru/share
+
+function anon_access {
+	return 1;
+}
+
+if [ "x$1" == "x--prefix" ]; then
+	shift
+	SHARE="$SHARE/$1"
+	PREFIX="$PREFIX/$1"
+	mkdir -p "$SHARE" || exit 1
+	shift
+fi
+
+for i in "$@"; do
+	NAME=`basename "$i" | sed 's/  */_/g; ' | tr "'\"?%&" '_' | (trlit || cat ) |  tr '[:upper:]' '[:lower:]'`
+	RL=`readlink -f "$i"`
+
+	echo "debug: $i => $NAME"
+	
+	if anon_access; then
+		ln -s "$RL" "$SHARE/$NAME"
+	else 
+		cp -rTfu "$RL" "$SHARE/$NAME"
+	fi &&\
+	echo "$PREFIX/$NAME"
+done
+
+echo "$PREFIX/"
