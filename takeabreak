@@ -1,0 +1,79 @@
+#!/bin/sh
+
+SUBJPREF="[Склянки]"
+
+# SUBJ="Медленно вдохнуть. Медленно выдохнуть. Повторить три раза. "
+# SUBJ="Прогуляйся пять минуток, отдохни от монитора"
+SUBJ="Производственная гимнастика (см. внутри)"
+
+HR=`date +%H`
+
+RAND_WIKI=http://ru.wikipedia.org/wiki/%D0%A1%D0%BB%D1%83%D0%B6%D0%B5%D0%B1%D0%BD%D0%B0%D1%8F:Random 
+
+
+[ "$HR" -lt 6 ] && SUBJ="Спать пора"\!
+
+[ -z "$MAIL" ] && MAIL="/var/mail/$USER"
+
+if [ -d $HOME/bin ]; then
+	PATH="$PATH:$HOME/bin"
+fi
+
+function message () {
+	# prevent wrong timing on $MAIL
+	sleep 3
+
+	cat <<EOF
+Производственная гимнастика. 
+
+Встать из-за компа. 
+
+1. покачать головой, позевать.
+2. руки вытянуты вперед, развести в стороны до упора, потом обратно. 
+3. руки сомкнуты в замок за головой. потянуть на себя, одновременно расправляя шею. 
+4. 10 раз подпрыгнуть.
+5. прикрыть глаза и глубоко вдохнуть несколько раз. 
+
+можно ещё посмотреть в окно на далёкий объект. 
+
+EOF
+
+	# echo	Выше голову!!
+
+	EXR="$HOME/self/exercises"
+	if false && [ -f $EXR ]; then
+		echo
+		echo "Случайное задание (из $EXR): "
+		cat $EXR | grep -v '^ *#' | randstr 
+		echo
+	fi
+
+	echo
+
+	echo "Это интересно: "
+	wget --server-response --spider --max-redirect 0 -O /dev/null "$RAND_WIKI" 2>&1 |\
+		grep '^Location: ' | awk '{print $2}' |\
+		perl -wpe 's/%([0-9a-f]{2})/"chr(0x$1)"/ieeg'
+
+	echo
+ 	fortune
+}
+
+function already () {
+	fgrep -q "Subject: $SUBJPREF" "$MAIL"
+}
+
+function userhere () {
+	pgrep xlock && return 1
+	who | grep "^$USER " | egrep -q ":[0-9] |tty[0-9]" 
+}
+
+if [ "$1" == --test-msg ]; then
+	message
+	exit 
+fi
+
+userhere && already || message | mail -s "$SUBJPREF $SUBJ" "$USER"
+
+
+
