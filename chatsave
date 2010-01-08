@@ -1,0 +1,28 @@
+#!/bin/sh
+
+if [ -z "$1" ]; then
+	echo "Usage: $0 <person> <topic> ..."
+	exit 1
+fi
+
+DIR=~/self/chat
+DIR="$DIR"/`date +%Y-%m-%d`
+mkdir -p "$DIR"
+
+function sane {
+	echo "$*" | sed 's/  */_/g; s,/,%,g;'
+}
+
+PEER=`sane "$1"`
+shift
+NAME=$PEER-`sane "$*"`
+
+(
+echo
+date 
+echo "=========================================="
+xclip -o 
+)>> $DIR/$NAME
+
+ln -s "$NAME" "$DIR/${PEER}_`date +%H%M`"
+echo saved: "$DIR/$NAME"
