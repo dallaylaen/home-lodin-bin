@@ -1,0 +1,17 @@
+#!/bin/bash
+
+DIR=`mktemp -t -d cppfile.XXXXXXXX`
+test -d "$DIR" || exit ;
+SRC="$DIR/main.cpp"
+EXE="$DIR/main"
+trap 'cd /; rm -rf "$DIR"' EXIT
+
+echo "#include <stdio.h>" >"$SRC"
+cat >>"$SRC" || exit 1
+g++ -o "$EXE" -Wall "$SRC" "$@" ||exit 2
+cd "$DIR"
+echo "RUNNING"
+$EXE
+RET=$?
+echo
+echo "DONE, exit code $RET"
