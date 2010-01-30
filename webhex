@@ -1,0 +1,12 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+$/ = undef;
+
+defined ($_ = <>) or exit;
+
+chomp;
+s/([^\w\s])/sprintf "%%%02x", ord($1)/ge;
+s/\s+/+/gs;
+print;
