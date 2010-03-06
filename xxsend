@@ -1,0 +1,48 @@
+#!/usr/bin/perl -w
+
+use strict;
+use MIME::Base64;
+
+local $/ = undef;
+while (@ARGV) {
+	my $file = shift @ARGV;
+	defined $file and length $file or next;
+
+	print STDERR "\tpacking: $file\n";
+
+	if (not -f $file) {
+		unshift @ARGV, (split /\x0/, `find "$file" -type f -print0`);
+		next;
+	};
+
+	my $fd;
+	unless (open ($fd, "<", $file)) {
+		warn "cannot open: $file";
+		next;
+	};
+
+	my $chunk;
+	unless (defined ($chunk = <$fd>)) {
+		warn "cannot read from $file";
+		close $fd;
+		next;
+	};
+
+	print "[file: $file]\n\n";
+	print encode_base64($chunk);
+	print "\n";
+
+	close $fd;
+};
+
+sub urlenc {
+	my $x = shift;
+	$x =~ s:([^/\w_]):sprintf "%%%02x", ord($1):ge;
+	return $x;
+};
+
+sub urldec {
+	my $x = shift;
+	$x =~ s:%([a-f0-9][a-f0-9]):"chr 0x$1":gee;
+	return $x;
+};
