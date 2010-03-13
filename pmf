@@ -1,0 +1,147 @@
+#!/usr/bin/perl -w
+
+#######################################################
+###
+## pmf -- Perl Module Finder
+#
+#  This utility searches for given perl module 
+#  (given as Perl::Module::Name) 
+#  within current directory and, probably, @INC
+#
+#  It then executes a specified command or, if none given,
+#  just prints the file
+#
+#  copyright (c) 2010, "Konstantin S. Uvarin" <lodin@altlinux.ru>
+#
+use strict;
+use Getopt::Long qw(:config no_ignore_case);
+
+my $depth = 3;
+my $cmd = undef;
+my $useinc = 0;
+my $editor = "mc -e";
+my @where = (".");
+
+GetOptions (
+	"help|h"=>sub {usage(1)},
+
+	"edit|e"=>sub {$cmd = $editor},
+	"perldoc|doc|d"=>sub {$cmd = 'perldoc'},
+	"list|l"=>sub {$cmd = "ls -l"},
+	"E"=>sub {$cmd = $ENV{EDITOR}},
+
+	"cmd|c=s"=>\$cmd,
+	"depth|D=i"=>\$depth,
+	"use-include|i"=>\$useinc,
+	"I=s"=>\@where
+);
+
+usage() unless 1 == @ARGV;
+my $mod = shift;
+
+push @where, @INC if $useinc;
+
+my $pm = search ($mod, $depth+1, @where);
+if (defined $pm) {
+	if (defined $cmd) {
+		system ("$cmd " . escape($pm));
+	} else {
+		print "$pm\n";
+	};
+	exit(0);
+};
+
+print STDERR "not found: $mod\n";
+exit(1);
+
+##########################
+#  Main ends here
+
+##############################
+#  usage: print short help to STDERR and exit
+#  usage(1) means "write to STDOUT"
+
+sub usage {
+	my $file = ($_[0]) ? \*STDOUT : \*STDERR;
+	my $prog = $0;
+	$prog =~ s,^.*/,,;
+	print $file <<"EOF";
+pmf -- Perl Module Finder
+Usage: $prog [-deil] [-I ...] [-c ...] [-D n] Perl::Module::Name
+This program will locate a perl module and print it to stdout,
+or run the specified command
+	-d : run perldoc
+	-e : run $editor
+	-E : run \$EDITOR (probably vi)
+	-l : run ls -l
+	-c <command>: run arbitrary command
+	-D <n> : set search depth (default 3)
+	-I <dir>: add directory to search path
+	-i : add \@INC to search path
+EOF
+	exit 1;
+};
+
+###############################
+#  escape for usage in system("...")
+#     we cannot rely on system ($x, $y) 
+#     as $x may contain cmd + options (mc -e)
+sub escape {
+	my $x = shift;
+	$x =~ s,\',\'\\\'\',g; #'
+	return "'$x'";
+};
+
+###############################
+#  The core: search through directories
+#  Takes file/module, depth, and list of directories
+#  returns first matching filename, or undef if none found
+sub search {
+	my ($name, $depth, @loc) = @_;
+	@loc or @loc = (".");
+	$depth ||= 3;
+	my $name2 = name2path($name);
+	
+	# foreach depth, search for file/module, 
+	# and replace the dir list with a deeper one
+	while ($depth-->0) {
+		foreach my $d (@loc) {
+			-f "$d/$name" and return "$d/$name";
+			-f "$d/$name2" and return "$d/$name2";
+		};
+		# stop if next iteration is useless
+		last unless $depth;
+		@loc = dir_expand (@loc);
+	};
+	return undef;
+};
+
+#################################
+# convert Perl::Module to Perl/Module.pm
+sub name2path {
+	my $x = shift;
+	$x =~ s,::,/,g;
+	$x =~ s,$,.pm,;
+	return $x;
+};
+
+#################################
+#  takes a list of directories
+#  returns a list of all their (direct) subdirectories
+#  . and .. omitted
+sub dir_expand {
+	my @out;
+	foreach my $dir (@_) {
+#		print STDERR "\tprocessing: $dir:";
+		opendir (DIR, $dir) or next;
+		while (my $f = readdir (DIR)) {
+			next if $f eq '.' or $f eq "..";
+			-d "$dir/$f" and push @out, "$dir/$f";
+#			print STDERR " ... $f"
+		};
+#		print STDERR "\n";
+		close DIR;
+	};
+	return @out;
+};
+
