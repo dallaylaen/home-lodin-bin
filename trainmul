@@ -1,0 +1,28 @@
+#!/usr/bin/perl -wl
+
+use strict;
+
+my $i = num() ;
+my $j = num() ;
+
+print "$i * $j = ?";
+my $t = time;
+
+while (<STDIN>) {
+	next unless /(\d+)/;
+	if ($1 == $i * $j) {
+		print "Right";
+	} else {
+		print "Wrong, ", $i * $j;
+	};
+	last;
+};
+
+print "Calculated in ", time - $t, " sec";
+
+sub num {
+	return (int (rand() * 9) + 1 )
+		. (int (rand() * 10))
+		. (int (rand() * 9) + 1 );		
+};
+
