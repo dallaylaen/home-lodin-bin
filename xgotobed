@@ -1,0 +1,67 @@
+#!/bin/sh
+
+DELAY=15
+LOCK=$HOME/.gotobed
+
+NOTIFY="Хватит сидеть за компом"
+TEXT_NOW="Выхожу" 
+TEXT_DELAY="Ещё %s минут" 
+
+
+# default DISPLAY
+[ -z "$DISPLAY" ] && DISPLAY=:0
+export DISPLAY
+
+isxauth () {
+	xauth extract - "$DISPLAY" 2>/dev/null |\
+		grep -q .		
+};
+
+isoff () {
+	xset q | grep -q "Monitor is on"
+};
+
+telltostop () {
+	[ -z $1 ] && DLY=$DELAY || DLY=$1
+	MORE=`printf "$TEXT_DELAY" $DLY`
+	zenity --question --text="$NOTIFY" --ok-label="$TEXT_NOW" --cancel-label="$MORE" &&\
+	xset dpms force off
+}
+
+usage () {
+	echo "Usage: $0 [--stop] [--delay minutes]"
+	exit 1
+};
+
+while ! [ -z "$1" ]; do
+	OPT=$1
+	shift
+	case "$OPT" in
+		--stop|-s)
+			rm "$LOCK"
+			exit 
+		;;
+		--delay|-d)
+			DELAY=$1
+			shift
+		;;
+		--help|-h)
+			usage
+		;;
+		*)
+			usage >&2
+		;; 
+	esac
+done
+
+isxauth || exit 1
+
+(
+flock -n 9 || exit
+while [ -f "$LOCK" ]; do
+	isoff || telltostop $DELAY
+	sleep $(($DELAY * 60 + 1))
+done
+) 9>>$LOCK
+
+
