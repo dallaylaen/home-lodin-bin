@@ -1,0 +1,33 @@
+#!/bin/sh
+
+#numbers
+PERIOD=1.477
+PAUSE=60
+TIMES=5
+
+MAX=$1
+[ -z "$MAX" ] && MAX=5;
+
+#sounds
+DIR=$HOME/.pushup
+READY="$DIR/ready.wav"
+GO="$DIR/go.wav"
+HU="$DIR/hu.wav"
+REST="$DIR/enough.wav"
+
+say () {
+	[ -f "$1" ] &&\
+		 play -q "$1" &
+}
+
+for i in `seq $TIMES`; do
+	[ "$i" = 1 ] || sleep $PAUSE
+	say $READY
+	sleep 5 
+	say $GO && sleep 1
+	for j in `seq $MAX`; do
+		say $HU
+		sleep $PERIOD
+	done
+	say $REST
+done
