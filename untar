@@ -1,0 +1,14 @@
+#!/bin/sh
+
+if [ -z "$1" ] || [ "x$1" = x--help ]; then 
+	echo "Usage: `basename $0` <file> "
+	echo "Unpack <file> in tar, tar.gz or tar.bz2 format"
+	
+	exit 1
+fi
+
+for i in "$@"; do 
+
+	(nice bzcat "$i" || nice zcat "$i" || cat "$i" ) | nice tar -x
+done
+
