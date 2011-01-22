@@ -1,0 +1,35 @@
+#!/bin/sh
+
+URL=$1
+
+if [ -z "$URL" ]; then 
+	echo "Usage: $0 url [n]"
+	echo "This script will wget n (default=10) urls similar to this one"
+	echo "changing last encountered number to 1..n"
+	exit 1
+fi
+
+EXT=`echo $URL | sed 's/.*\(\.mp[0-9]\)$/\1/'`
+URL=`echo $URL | sed 's/\.mp[0-9]$//'`
+if [ "$EXT" = "$URL" ]; then 
+	EXT=''
+fi
+
+PRE=`echo $URL | sed 's/^\(.*[^0-9]\)[0-9][0-9]*\([^0-9]*\)$/\1/'`
+POST=`echo $URL | sed 's/^\(.*[^0-9]\)[0-9][0-9]*\([^0-9]*\)$/\2/'`
+
+if [ "$PRE" = "$URL" ]; then 
+	echo "Sorry, can't determine number part in $URL"
+	exit 2
+fi
+
+N=$2
+[ -z "$N" ] && N=10
+
+for i in `seq $N`; do
+	echo "${PRE}${i}${POST}${EXT}"
+	echo "${PRE}0${i}${POST}${EXT}"
+	echo "${PRE}00${i}${POST}${EXT}"
+done | xargs wget -c 
+
+exit 0
