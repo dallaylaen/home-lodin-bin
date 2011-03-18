@@ -1,0 +1,31 @@
+#!/bin/sh
+
+mkf=Makefile.PL
+man=MANIFEST
+
+usage () {
+	echo >&2 "Usage: $0 "
+	echo "$mkf and $man required in current dir"
+	exit 1
+}
+
+[ -f $man ] || usage
+[ -f $mkf ] || usage
+grep -q "^$mkf$" $man || usage
+
+dir=`mktemp -d disttest-XXXXXXXX`
+trap 'rm -rf "$dir"' 0
+
+while read file; do
+	dst=$dir/`dirname "$file"`
+	mkdir -p "$dst"
+	cp -p -v "$file" "$dst" || exit 1	
+done <$man
+
+cd $dir || exit
+
+perl Makefile.PL && make test && make dist && mv -v -f *.tar.gz ..
+
+cd - >/dev/null
+
+
