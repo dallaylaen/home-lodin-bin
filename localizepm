@@ -1,0 +1,15 @@
+#!/bin/sh
+
+module=`echo $1 | sed 's,::,/,g; s/\.pm$//; s/$/.pm/;'`
+
+dst=`dirname $module`
+
+for path in `perl -we '$,="\n"; print @INC'`; do
+	src="$path/$module"
+	[ -f "$src" ] && break;
+done
+
+[ -f "$src" ] || exit 1
+
+mkdir -p $dst
+cp -v $src $dst
