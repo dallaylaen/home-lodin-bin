@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# alas! ubuntu won't set USER, only LOGNAME
+USER=$LOGNAME
+
+# home connector
+GOHOST=$1
+# GOHOST=khedin.starlink.ru
+GOUSER=$2
+GOPORT=$3
+RPORT=$4
+shift 4
+
+LOCK="/tmp/gohome.$GOUSER\@$GOHOST:$GOPORT.lock"
+
+(
+flock -n 9 &&\
+while nc -z $GOHOST $GOPORT 2>/dev/null; do
+	ssh -N -C $GOUSER@$GOHOST -p $GOPORT \
+		-R $RPORT:localhost:22 -L $GOPORT:localhost:$GOPORT \
+		"$@" 
+	sleep 10
+done
+) 9>>$LOCK
