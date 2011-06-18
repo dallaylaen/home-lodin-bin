@@ -1,0 +1,331 @@
+#!/bin/bash
+
+################################################################
+##  GitBack v.0.2.2                                           ##
+##                                                            ##
+##  (c) 2009 Konstantin S. Uvarin <lodin@altlinux.ru>         ##
+##                                                            ##
+##  Available under terms of GNU General Public License v. 3+ ##
+################################################################
+
+CONFIG=~/.gitbackrc
+CMDNAME=`basename "$0"`
+CMDVER=0.2.2
+
+#####################
+# Utility functions #
+#####################
+
+# print fatal error nsg and exit
+function die {
+	echo >&2 "$CMDNAME: fatal: $*"
+	exit 1
+}
+
+# file name and location canonizer
+function rl {
+	readlink -m -- "$1" | sed 's:^/*::'
+}
+
+# help 
+function usage {
+	echo "Gitback v.$CMDVER, (c) Konstantin Uvarin <lodin@altlinux.ru>"
+	echo "Save user's files in a git-based repository"
+	echo "Your repository is at: $STORAGE"
+	echo
+	echo "Usage: $CMDNAME [action] [options] [--] [file] ... "
+	echo "Actions:"
+	echo "    --save|-s: save specified files (default action)"
+	echo "    --diff, -d: show difference between current location and storage"
+	echo "    --log, -l, --history: show changes history"
+	echo "    --restore, -r: replace file(s) with saved copies"
+	echo "    --clean: reset storage, remove untracked files"
+	echo "Options: "
+	echo "    -D, --date {time}: use versions as of {time}, 'yesterday' or '07:40' are OK"
+	echo "        if -D is given, default action will be diff instead of save"
+	echo "    -B, --backup-branch: use backup branch (for r/o operations)"
+	echo "    -m [message] Commit message, i.e. some reason for saving file(s)"
+	echo "Note:"
+	echo "    --diff, --log, and --restore use current directory if no files specified."
+	exit 1
+}
+
+# git checkout wrapper -- choose repository branch to use
+# w/o arguments will RESET git repository 
+function set_br {
+	cd "$STORAGE"
+	BR=$1
+	QUIET=
+	[ -z "$BR" ] && BR=master
+	[ "$BR" == master ] && QUIET=-q || QUIET=$VERB
+	git checkout $QUIET -f "$BR" || exit $?
+	git clean $VERB -f -d
+	cd - >/dev/null
+}
+
+######################
+# Let the code begin #
+######################
+
+# STORAGE default value (lodin's machine)
+STORAGE=/yard/$USER/git-arc
+
+# read configuration
+. $CONFIG 
+
+# ARC is where files relocate within storage
+# $STORAGE/root means we can store additional data within storage
+# and never delete .git even if /.git is present on the machine (huh?!)
+ARC=$STORAGE/root
+
+# check TMP variable
+if [ -z "$TMP" ]; then
+	TMP=/tmp
+	export TMP
+fi
+
+##############################
+# analyze args, stop if "--" #
+##############################
+
+# n is number of filenames read from args
+n=0
+
+# ACT is what we shall really do 
+ACT=
+
+# BRANCH can be 'master' or 'backup' (for autobackups) 
+# with optionsal timestamp
+BRNAME=master
+BRANCH=$BRNAME
+BRDATE=
+
+# verbosity
+VERB=
+
+while [ \! -z "$1" ]; do
+	case $1 in
+		--help|--usage)
+			usage
+			exit 1
+		;;
+		--diff|-d)
+			ACT=diff
+		;;
+		--restore|-r)
+			ACT=restore
+		;;
+		--date|-D)
+			shift
+			BRDATE="$1"
+		;;
+		--backup-branch|-B)
+			BRNAME=backup
+		;;
+		--save|-s)
+			ACT=save
+		;;
+		--purge|--delete)
+			ACT=purge
+		;;
+		--message|-m)
+			shift
+			MESSAGE=" $1"
+		;;
+		-l|--log|--history)
+			ACT=log
+		;;
+		--full-log)
+			ACT=log
+			LOGOPT=-p
+		;;
+		-p)
+			LOGOPT=-p
+		;;
+		-k|--clean)
+			ACT=clean
+		;;
+		--save-all)
+			ACT=save-all
+		;;
+		--diff-all)
+			ACT=diff-all
+		;;
+		--brief)
+			DIFFOPT="--brief"
+		;;
+		-q)
+			VERB=$1
+		;;
+		--)
+			shift
+			break
+		;;
+		*)
+			if [ ${1:0:1} == '-' ]; then
+				echo >&2 "$CMDNAME: Unknown option: $1"
+				usage
+			fi
+			RL=`rl "$1"`
+			if [ \! -z "$RL" ]; then
+				ARGS[n]=$RL
+				n=$(($n + 1))
+			fi
+		;;
+	esac
+	shift
+done
+
+# pick up the rest of arguments after "--"
+while [ \! -z "$1" ]; do
+	RL=`rl "$1"`
+	if [ \! -z "$RL" ]; then
+		ARGS[n]=$RL
+		n=$(($n + 1))
+	fi
+	shift
+done
+
+# set up branch name correctly
+[ -z "$BRDATE" ] && BRANCH=$BRNAME || BRANCH=$BRNAME@{$BRDATE}
+
+# default action must be DIFF if date specified
+if [ -z "$ACT" ]; then
+	[ "$BRANCH" == master ] && ACT=save || ACT=diff
+fi
+
+# allow default argument "." for read-only actions
+case $ACT in 
+diff|log|restore)
+	if [ "$n" -le 0 ]; then 
+		ARGS[0]=`rl .`
+	fi
+;;
+esac
+
+###################
+# Begin real work #
+###################
+
+# Create lock, because we'll call set_br here
+# Note that even r/o operations (diff, log...) may require
+# writing to the repository if we want to switch branches
+( 
+flock -x 9
+
+####################################
+# Initialize git storage if needed #
+####################################
+if [ \! -d $STORAGE/.git ]; then
+	echo >&2 New storage in $STORAGE
+	mkdir -p "$STORAGE" || exit 1
+	cd "$STORAGE"
+	mkdir -p "$ARC" || exit 1
+	git init || exit 1
+	git commit -a --allow-empty -m "initial empty commit" || exit 1
+	git branch backup || exit 1
+	git branch 
+	echo >&2 "Created storage."
+	echo >&2
+fi
+
+# restore repository after use
+trap "set_br" exit
+
+###############
+# main switch #
+###############
+case $ACT in
+save)
+	# check we don't have date specified
+	[ "$BRANCH" == master ] || die "Won't save files at specific date or backup branch"
+
+	set_br 
+
+	for RL in "${ARGS[@]}"; do
+		# cp -fa --parent --target-directory "$ARC" -- "$RL" 
+		rsync -aR --delete -- "/$RL" "$ARC"
+		cd "$ARC"
+		git add "$ARC/$RL" 
+		cd - >/dev/null 
+	done
+
+	if [ $n -le 3 ]; then 
+		MESSAGE="[`date` ${ARGS[*]}]${MESSAGE}"
+	else
+		MESSAGE="[`date` `pwd`]${MESSAGE}"
+	fi
+	cd "$ARC"
+	git commit $VERB  -a -m "$MESSAGE"
+	exit $?
+;;
+
+diff) 
+	set_br "$BRANCH"
+	CHANGE=0
+	for RL in "${ARGS[@]}"; do
+		diff $DIFFOPT -ur "$ARC/$RL" "/$RL" || CHANGE=1
+	done
+	exit $CHANGE
+;;
+
+restore)
+	set_br "$BRANCH"
+	for RL in "${ARGS[@]}"; do
+		cp -Tavf -- "$ARC/$RL" "/$RL"
+	done
+;;
+
+purge)
+	set_br
+	for RL in ${ARGS[@]} ; do
+		echo "$ARC/$RL"
+	done |\
+		xargs -d\\n rm -rf
+
+	if [ $n -le 3 ]; then 
+		MESSAGE="[`date` DELETE ${ARGS[*]}]${MESSAGE}"
+	else
+		MESSAGE="[`date` DELETE `pwd`]${MESSAGE}"
+	fi
+
+	cd "$ARC"
+	git commit $VERB -a -m "$MESSAGE"
+;;
+
+log)
+	set_br "$BRANCH"
+	cd "$ARC"
+	git log $LOGOPT "${ARGS[@]}"
+;;
+
+clean)
+	# nothing to do here: set_br will be done on exit
+;;
+
+save-all)
+# This one is for automated backup
+	cd "$ARC"
+	set_br backup
+	git merge master
+
+	find . -type f | LC_ALL=C grep -v '^\./\.git/' |\
+		 rsync -aR --delete --files-from - / .
+
+	git commit $VERB -a -m "[Automated full backup at `date`]${MESSAGE}"
+;;
+
+diff-all)
+# This one is for automated backup
+
+	set_br "$BRANCH"
+	cd "$ARC"
+	find . -type f | LC_ALL=C grep -v '^\./\.git/' |\
+	while read RL; do
+		diff $DIFFOPT -ur $ARC/$RL /$RL 
+	done
+;;
+
+esac
+) 9>> "$TMP/git-back-"`echo $STORAGE | sed 's,%,%%,g; s,/,%-,g;'`.lock
+
