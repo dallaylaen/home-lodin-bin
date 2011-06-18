@@ -1,0 +1,98 @@
+#!/bin/bash
+
+LIST=~/.wakeup
+LOUD=90
+LOCK=~/.wakeup-lock
+
+touch "$LOCK"
+
+function play_list () {
+	if pgrep -u $USER xmms >/dev/null; then
+		PLAYER=xmms
+	else 
+		PLAYER=mplayer
+	fi
+
+	DISPLAY=''
+
+	while read i; do find "$i" -type f | sort ; done |\
+		xargs -d\\n $PLAYER >/dev/null 
+
+#	while read i; do
+#		find "`echo $i`" -type f -print0
+##		find "$i" >&2
+#	done | xargs -0 $PLAYER >/dev/null
+}
+
+function fade_in () {
+	for i in `seq $LOUD`; do
+		aumix -v $i
+		sleep 5
+	done &
+}
+
+function escape () {
+	for i in "$@"; do
+		echo -n \""$i"\" " "
+	done
+}
+
+
+ARG=$1
+shift
+
+[ -z "$ARG" ] && ARG=--help
+
+case "$ARG" in
+	--help|--usage)
+		echo "Usage: `basename $0` --help|--cancel|now|<time>"
+		exit 1
+	;;
+
+	--list)
+		echo "# Playlist at $LIST"
+		grep -v '^ *#' "$LIST"
+	;;
+
+	--delete|--cancel|--off|--stop|-c|-s)
+		at -l | awk '{ print $1 }' | while read i; do
+			if at -c "$i" | fgrep -q "$0 now"; then
+				echo "remove job $i"
+				atrm "$i"
+			fi			
+		done
+		fuser -k "$LOCK"
+	;;
+
+	--show)
+		at -l | awk '{ print $1 }' | while read i; do
+			if at -c "$i" | fgrep -q "$0 now"; then
+				echo "job $i"
+			fi
+		done
+	;;
+
+	now)
+		touch $LOCK
+	(
+		flock -n 9 || exit 1
+		# gradually increase loudness
+		fade_in 
+	
+		# load playlist into player
+		# perl -pe 's/\n/\x00/s' <$LIST | DISPLAY=:1 xargs -0 xmms ||\
+		if [ -z "$*" ]; then
+			cat $LIST | grep -v '^ *#' | sed 's/\*/\\\*/g' 
+		else
+			for i in "$@"; do echo $i; done
+		fi |\
+		play_list
+	) 9<$LOCK
+	;;
+
+	*)
+		# set up AT job
+		ARG=`echo $ARG | sed 's/^\([0-9][0-9]*\)$/\1:00/'`
+		echo "$0 now `escape "$@"`"  | at "$ARG" && (play -q ~/snd/wakeup.ogg &) 
+	;;
+esac
