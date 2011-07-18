@@ -1,0 +1,62 @@
+#!/bin/sh
+
+require () {
+	REQ=
+	for i in "$@"; do
+		which $i >/dev/null && continue
+		REQ="$REQ $i"
+	done
+	if [ ! -z "$REQ" ]; then
+		echo >&2 "Not found required command(s):"
+		echo >&2 "$REQ"
+		exit 1
+	fi
+}
+
+encode () {
+ 	nice lame --abr 150 -h $1 $2.mp3 &&\
+}
+
+require lame nice cdparanoia
+
+START=01
+END=99
+
+if [ \! -z "$1" ]; then
+	START=$1
+	END=$1
+fi
+
+if [ \! -z "$2" ]; then
+	END=$2
+fi
+
+[ -z "$TMP" ] && TMP=$HOME/tmp
+
+DIR="$TMP/grab-`date +%s`"
+
+cleanup () {
+	rm -rf "$DIR"
+}
+
+trap "cleanup" EXIT
+
+
+mkdir -p "$DIR"
+
+cat | for i in `seq -w $START 1 $END`; do
+	SRC="$DIR/$i.wav"
+
+	cdparanoia "$i" "$SRC" || exit
+
+	[ -f $SRC ] || break
+	(
+		flock -x 9
+		encode $SRC $i && rm $SRC
+	) 9>>"$DIR/lock"&
+done | cat 
+
+flock -x 9 9>>$DIR/lock
+
+# rmdir "$DIR"
+
