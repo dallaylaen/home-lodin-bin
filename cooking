@@ -1,0 +1,66 @@
+#!/bin/bash
+
+SOUND=~/snd/tuktuk.ogg
+PLAYER=play
+LOCK=~/.cooking
+
+INTERVAL=120
+# INTERVAL=120
+
+stop () {
+	rm -f $LOCK
+	exit 0;	
+};
+
+usage () {
+	echo "usage: `basename "$0"` [--stop|<interval>]"
+	echo "this script will nag you every <interval> seconds until stopped"
+	echo "default for <interval> is 120"
+	exit 1
+}
+
+case $1 in 
+	--stop|0|-s)
+		stop
+		exit 0
+	;;
+	--help|--usage)
+		usage
+	;;
+	*)
+		if [ "$1" -gt 0 ] 2>/dev/null ; then
+			INTERVAL=$1
+		else 
+			[ -z "$1" ] || usage
+		fi
+	;;
+esac
+
+# if [ -f $LOCK ]; then
+# 	echo "Stale lock file $LOCK found, remove if needed"
+# 	exit 2
+# fi
+
+check=`which $PLAYER`
+if [ ! -x "$check" ]; then
+	echo >&2 "Fatal: program $PLAYER not found"
+	exit 1
+fi
+if [ ! -f "$SOUND" ]; then 
+	echo >&2 "Fatal: sound file $SOUND not found"
+	exit 1
+fi
+
+(
+# make sure we delete lock on exit
+trap "stop" INT TERM 
+echo $$> $LOCK
+
+while :; do 
+	sleep $INTERVAL
+	read pid <$LOCK && test $pid == $$ || exit
+	$PLAYER $SOUND
+done 
+) </dev/null >/dev/null 2>&1&
+
+
