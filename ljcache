@@ -1,0 +1,228 @@
+#!/bin/bash
+
+export LC_ALL=C
+
+function usage {
+	echo `basename $0`: "get livejournal users data from cache or server"
+	echo
+	echo Usage:
+	echo "see source, not done yet"
+}
+
+function fetch {
+	export LC_ALL=C
+
+	local ACT=$1 # print | quiet | diff
+	local DAYS=$2
+	local DIR=$3
+	local URL=$4
+	local NAME=$5
+	local POSTFIX=$6
+
+	[ -z $TIME ] && TIME=`date +%s`
+	MTIME=`stat -c "%Y" "$DIR/$USER" 2>/dev/null `
+
+	echo >&2 "t0=$TIME t=$MTIME $DIR/$NAME"
+
+	if [ \! -f "$DIR/$NAME" ] ||\
+		[ "$(( $MTIME + $DAYS * 24 * 60 * 60 - 60 ))" -lt "$TIME" ]; 
+	then
+		mkdir -p "$DIR"
+		( 
+		flock -x 9
+		TMP=`mktemp /tmp/lj-cache-fetch-XXXXXXXX`
+		[ "x$VERB" == x-v ] && echo -n >&2 "# fetching ${URL}${NAME}${POSTFIX}..."
+		ERR=
+		trap "ERR=1" USR1
+		(wget -O- -o /dev/null "${URL}${NAME}${POSTFIX}" || kill -USR1 $$) |\
+			grep -v "^ *#" | sort >"$TMP"
+		if [ -z $ERR ]; then
+			[ "x$VERB" == x-v ] && echo >&2 " done"
+			sed -i '/^!/ d' $TMP
+			[ "$ACT" == diff ] && [ -f "$DIR/$NAME" ] &&\
+				 diff -ur "$DIR/$NAME" "$TMP"
+			mv -f "$TMP" "$DIR/$NAME"
+		else
+			[ "x$VERB" == x-v ] && echo >&2 " failed!"
+		fi
+		rm -f "$TMP"
+		) 9>"$DIR"/.lock
+	fi
+
+	if [ "$ACT" == print ]; then
+		cat "$DIR/$NAME"
+	fi
+}
+
+function ljfetch {
+	local ACT=$1
+	local TYPE=$2
+	local NAME=$3
+
+	PREFIX=http://livejournal.com/misc
+	DIR="$HOME/.lj/cache"
+
+	case $TYPE in 
+		fof|fnd|mut)
+			URL=fdata.bml?user=
+			DATA=friends
+		;;
+		int)
+			URL=interestdata.bml?user=
+			DATA=interest
+		;;
+		*)
+			return 1
+		;;
+	esac
+
+	fetch $ACT 1 "$DIR/$DATA" "$PREFIX/$URL" "$NAME" ""
+}
+
+function ljshow {
+	local TYPE=$1 # fnd | fof | int | mut
+	local NAME=$2
+
+	local FILTER=""
+	[ "$TYPE" == fnd ] && FILTER="> "
+	[ "$TYPE" == fof ] && FILTER="< "
+	[ "$TYPE" == mut ] && FILTER="[<>] "
+
+	ljfetch print $TYPE $NAME |\
+	if [ "$TYPE" == mut ]; then
+		sed -n "s,^$FILTER,, p" | sort | uniq -d
+	else
+		sed -n "s,^$FILTER,, p" 
+	fi
+}
+
+function ljdiff {
+	local TYPE=$1 # fnd | fof | int
+	local NAME=$2
+
+	local FILTER=""
+	[ "$TYPE" == fnd ] && FILTER="> "
+	[ "$TYPE" == fof ] && FILTER="< "
+
+	ljfetch diff $TYPE $NAME | egrep -v "^\-\-\-|^\+\+\+" |\
+	sed -n "s,^\([\+\-]\)$FILTER,\1, p"
+}
+
+function rm_field { 
+	sed 's/^\(\s*\(\S\S*\s*\)\{'$(( $1 -1))'\}\)\s\s*\S\S*/\1/'; 
+}
+
+function print_links {
+	LJHOME=http://livejournal.com/
+	test -z "$LINKS" &&\
+		cat ||\
+		sed 's=\([a-zA-Z0-9_]+\)='$LJHOME'~\1/profile/g'
+}
+
+####################################
+#  start real action
+
+ACT=print
+NOFETCH=
+VERB=
+while [ \! -z "$1" ]; do
+	case $1 in 
+		--diff|-d)
+			ACT=diff
+		;;
+		--comm|--common|-c)
+			ACT=comm
+		;;
+		--fnd|--friends|-f)
+			TYPE=fnd
+		;;
+		--fof|--friendof|-F)
+			TYPE=fof
+		;;
+		--mut|--mutual|-m)
+			TYPE=mut
+		;;
+		--int|--interest|-i)
+			TYPE=int
+		;;
+		--rare-int)
+			TYPE=int
+			ACT=rare-int
+		;;
+		--count)
+			ACT=count
+		;;
+		--no-fetch)
+			NOFETCH=1
+		;;
+		--verbose|-v)
+			VERB=-v
+		;;
+		--print-links|-L)
+			LINKS=1
+		;;
+		--help)
+			usage
+			exit 1
+		;;
+		--)
+			shift
+			break
+		;;
+		*)
+			LIST="$LIST $1"
+		;;
+	esac
+	shift
+done
+
+# we assume no spaces in lj users
+LIST=`echo "$LIST $*" | tr A-Z a-z | sed 's/-/_/g; s/[^a-z_0-9 ]//g'`
+
+#################
+# main switch
+
+case $ACT in
+print)
+	for i in $LIST; do
+	ljshow $TYPE $i
+	done | ([ "$TYPE" == int ] && rm_field 2 || cat) | sort | uniq
+;;
+diff)
+	for i in $LIST; do
+	ljdiff $TYPE $i
+	done
+;;
+comm)
+	echo "# Common $TYPE of $LIST"
+	n=`echo "$LIST" | wc -w`
+	for i in $LIST; do
+	ljshow $TYPE $i
+	done |\
+	if [ "$TYPE" == int ]; then
+		sort -n | sed 's/^\s*\([0-9][0-9]*\)\s\s*[0-9][0-9]*\s\s*/\1 /'
+	else
+		sort 
+	fi |\
+	uniq -c | sed -n "s,^\s*${n}\s*,, p" 
+;;
+rare-int)
+	for i in $LIST; do
+	ljshow int $i
+	done |\
+	sort -n -u | sed -n 's/^\s*\([0-9][0-9]*\)\s\s*[0-9]\s\s*/\1 / p'
+;;
+count)
+	echo "# Common $TYPE of $LIST"
+	n=`echo "$LIST" | wc -w`
+	for i in $LIST; do
+	ljshow $TYPE $i
+	done |\
+	if [ "$TYPE" == int ]; then
+		sort -n | sed 's/^\s*\([0-9][0-9]*\)\s\s*[0-9][0-9]*\s\s*/\1 /'
+	else
+		sort 
+	fi |\
+	uniq -c | sort -n
+;;
+esac 
