@@ -1,0 +1,24 @@
+#!/bin/bash
+
+FILE=`mktemp`
+
+xsel -o >"$FILE"
+
+SUM1=`md5sum "$FILE"`
+aspell -l ru -c "$FILE"
+SUM2=`md5sum "$FILE"`
+
+if [ "$SUM1" == "$SUM2" ]; then
+	rm -f "$FILE"
+	echo "Spelling OK!"
+	sleep 3
+else 
+	# cat "$FILE"
+	# nohup sh -c 'cat "'"$FILE"'" | xclip '
+	cat "$FILE" | xsel -i
+	rm -f "$FILE"
+#	sleep 3
+fi
+
+
+
