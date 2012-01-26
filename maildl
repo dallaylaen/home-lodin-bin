@@ -1,0 +1,291 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+use Net::POP3;
+$|=1;
+umask 0077;
+
+$SIG{INT}=sub {exit(1);};
+
+my ($stub_r, $stub_w);
+pipe $stub_r, $stub_w;
+
+### Read config
+#
+#  login:'password'@somewhere.else 'forward-email'
+#
+
+my $re_qt="'(?:[^\']|\\\')*'";
+
+my $DIR="$ENV{HOME}/.maildl";
+my $cf;
+my $child = 1;
+my ($user, $pass, $host, $local_mail);
+open ($cf, "< ", "${DIR}/config") or die "Couldn't open config: $!\n";
+while (<$cf>) {
+	/^\s*(?:\#|$)/ and next;
+	/^\s*([\w\d\.\-\_]+):($re_qt)\@([\.\-\w\d]+)\s+($re_qt)/ 
+		or die "config file syntax error $_";
+		
+	$user = $1;
+	print "user=$user\n";
+	$host = $3;
+	print "host=$host\n";
+	$local_mail = $4;
+	print "local=$local_mail\n";	
+	$pass = $2;
+	$pass =~ s/^\'//;
+	$pass =~ s/\'$//;
+	$pass =~ s/\\\'/\'/g;
+	
+	$child = fork;
+	last if ($child == 0);
+	die $! unless defined $child;
+};
+close $cf;
+
+### parent process section begins here
+
+if ($child != 0) {
+	close $stub_w;
+	while (<$stub_r>) {
+	};
+	exit (0);
+};
+
+### child process section begins here
+
+close $stub_r;
+
+### chdir to mail directory
+
+my $msg_dir="${DIR}/${user}".'@'."${host}";
+mkdir $msg_dir or die unless -d $msg_dir;
+chdir $msg_dir or die;
+
+my $uidl_list = 'uidl.txt';
+my %known;
+
+### read known uidls
+if (open (UIDL, "<", $uidl_list)) {
+	while (<UIDL>) {
+		/^\s*(\S+)/ and $known{($1)}=1;
+	};
+	close UIDL;
+};
+
+printf ("loaded %u known messages\n", 0+keys %known);
+
+### Connect to the pop3 server
+my $pop;
+
+for (1..3) {
+	$pop = Net::POP3->new($host, Timeout => 300); # , Debug => 1);
+	last if $pop;
+	sleep 30;
+};
+die $! unless $pop;
+
+my $msgnum = $pop->auth($user, $pass);
+$msgnum = $pop->login($user, $pass) unless $msgnum; 
+die "Authentication failed!\n" unless $msgnum;
+
+print "Authentications successful.\n";
+
+my $cap = $pop->capa();
+
+# foreach my $i (sort keys %$cap) {
+#	print "$i\n";
+# };
+
+unless (defined $cap->{UIDL}) {
+	die "sorry, no UIDL on this server, wait for next version\nor use fetchmail";
+};
+
+print "Yep, UIDL supported.\n";
+
+### Now, load the last message: if it's known, go away.
+
+($msgnum) = $pop->popstat;
+print "\n$msgnum messages total\n\n";
+
+my $id = $pop->uidl($msgnum);
+if (defined $known{$id} ) {
+	print "No new messages, bye\n";
+	exit (0);
+};
+
+### Dihotomize the messages
+
+my ($l, $r) = (1, $msgnum);
+
+while ($l+1 < $r) {
+	my $m = int (($l + $r)/2);
+	my $id = $pop->uidl($m);
+
+	print "\ttesting message $m with id=$id : ";
+
+	if (defined $known{$id}) {
+		print "known\n";
+		$l = $m;
+	} else {
+		print "unknown\n";
+		$r = $m;
+	};
+};
+
+
+### fetch the messages, sendmail them, and remember not to get them again
+open (UIDL, ">>", $uidl_list);
+
+for (my $m = $l; $m <= $msgnum; $m++) {
+	#### stop downloading if paretn quits
+	print $stub_w "\n";
+	
+	### just in case the message is d/l-ed already
+	my $id = $pop->uidl($m);
+	print "\tprocessing message $m with id=$id : ";
+	if (defined $known{$id}) {
+		print "known\n";
+		next;
+	};
+
+	my $size = $pop->list($m);
+	print "size=$size\n";
+
+	### read the message into a temp file
+	my $fd = $pop->getfh($m) or die;
+	my $tmp_name = "message.$m.$id";
+	open (my $tmp, "+>", $tmp_name) or die $!;
+	
+	my $total = 0;
+	my $buf;
+	
+	my %head = ();
+	my $key = '';
+	my $state_top = 1;
+
+	my $showcount = 0;
+	while ($buf = <$fd>) {
+		#my $octets = read ($fd, $buf, 1024);
+		#unless (defined $octets) {
+		#	print "error!!\n";
+		#	die $!;
+		#};
+		
+		# last if $octets == 0;
+		
+		### print number of bytes read
+		my $octets =  length $buf;
+		
+		$total += $octets;
+		print ".";
+		if (++$showcount % 60 == 0) {
+			print "$total\n";
+		};
+		
+		### fetch info from headers and print here
+		### TODO !! FIXME !!		
+		
+		if ($state_top) {
+			# empty line -- stop, print header
+			if ($buf =~ /^$/) {
+				$state_top = 0;
+				print "\nheader fetched:\n";
+				print "from = $head{from}\n" if defined $head{from};
+				print "date = $head{date}\n" if defined $head{date};
+				print "subject = $head{subject}\n" if defined $head{subject};
+			};
+			
+			# starting with whitespaces == continue line
+			if ($buf =~ /^\s+(.*)$/ ) {
+				$head{$key} = $head{$key} . $1;
+			} else {
+
+				# finally, process {key}: {value} pairs
+				# and remember the key for the next string
+				$buf =~ /^(\S+?):\s*(.*)$/ or next;
+
+	    			$key = lc $1;
+				$head{$key} = $2;	
+			};
+		};
+		
+		### print the bytes into temp file
+		unless (print $tmp $buf) {
+			print "error!!\n";			
+			die $!;
+		};
+	};
+	close $fd;
+	
+#	die ("Size $size, read only $total\n") if $size != $total;
+	
+	### feed the temp file to sendmail
+	seek ($tmp, 0, 0);
+	
+	my $sendmail;
+	open ($sendmail, "|-", "/usr/sbin/sendmail -i $local_mail") or die $!;
+	while (read ($tmp, $buf, 4096)) {
+		die $! unless print $sendmail $buf;
+	};
+	close $tmp;
+	close $sendmail;
+	
+	system ('gzip', "-f", "-q", $tmp_name);
+
+	die unless print UIDL "$id\n";
+
+	print "\nfetched $total octets\n";
+};
+
+# my $msghead = $pop->top ($msgnum, 10);
+
+# foreach my $i (@$msghead) {
+# 	chomp $i;
+# 	print "$i\n";
+# };
+
+# my $hash = top2hash ($msghead);
+
+# foreach my $i (keys %$hash) {
+#	print "$i = $hash->{$i}\n";
+# };
+
+
+
+# $pop->quit;
+
+END {
+	print "Bye\n";
+	$pop->quit if defined $pop;
+}
+
+
+sub top2hash {
+	my ($top) = @_;
+
+	my $header = {};
+
+	my $key;
+	foreach my $i (@{$top}) {
+		# empty line == header ends here
+		last if $i =~ /^\s*$/;
+
+		# starting with whitespaces == continue line
+		if ($i =~ /^\s+(.*)$/ ) {
+			$header->{$key} = $header->{$key} . $1;
+			next;
+		};
+
+		# finally, process {key}: {value} pairs
+		# and remember the key for the next string
+		$i =~ /^(\S+): (.*)$/ or next;
+
+		$key = $1;
+		$header->{$key} = $2;
+	};
+	return $header;
+};
+
