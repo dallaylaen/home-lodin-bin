@@ -1,0 +1,70 @@
+#!/bin/bash
+
+DIR=~/.scheme
+HIST=$DIR/history.lisp
+DEFS=$DIR/defs.lisp
+WORDS=$DIR/syntax
+LOG=$DIR/log.lisp
+
+mkdir -p $DIR || exit 1
+
+replace () {
+	touch "$1.new" || return 1
+	cat >"$1.new" &&\
+	mv "$1" "$1~" &&\
+	mv "$1.new" "$1" 
+}
+
+defs_update () {
+cat "$HIST" "$DEFS" | perl -wne '
+	BEGIN {my %def}; 
+	/define \(?(\S+)\s*\(/ or next; $def{$1} = $_; 
+	END {foreach (sort values %def) {print};}' 
+}
+
+defs_complete () {
+(cat "$WORDS"; grep define "$DEFS" | awk '{ print $2 }') | sort -u
+}
+
+[ -z "$1" ] || case "$1" in
+#	--test-replace)
+#		sort <file1 | replace file1
+#		exit 1
+#	;;
+	--defs)
+		defs_update 
+		exit 0
+	;;
+	--def-update)
+		defs_update | replace "$DEFS"
+		exit 0
+	;;
+	--def-append)
+		echo "Enter new definitions: "
+		exec cat >>"$DEFS"
+		exit 3
+	;;
+	--def-complete)
+		defs_complete | replace "$WORDS"
+		exit 0
+	;;
+	--help)
+		echo "Usege: `basename $0` [--defs|--def-update|--help]"
+		echo "--defs           print define constructs found in history"
+		echo "--def-update    update defines file"
+		exit 1
+	;;
+	*)
+		echo >&2 "usage: `basename $0` [--defs|--def-update|--help]"
+		exit 2
+	;;
+esac
+
+# cat "$DEFS"
+# echo "----------------"
+
+# trap "kill -TERM -$$" SIGINT 
+
+rlwrap -b " ();" -H "$HIST" -f $WORDS -l $LOG \
+	sh -c "(echo ,load $DEFS; cat - ; echo ",exit") | nice scheme48"
+
