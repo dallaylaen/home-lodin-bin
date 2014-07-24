@@ -1,0 +1,11 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+foreach (@ARGV) {
+    my $old = $_;
+    my $new = lc $_;
+    next if $old eq $new;
+    rename $old, $new
+        or warn "Cannot rename $old to $new: $!\n";
+};
