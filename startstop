@@ -1,0 +1,12 @@
+#!/bin/sh
+
+PAUSE=10
+if [ ! -z "$2" ]; then
+    PAUSE=$1
+    shift
+fi
+
+TIME=$1
+
+
+sleep "$PAUSE"; play -q snd/start.au; sleep "$TIME"; play -q snd/end.au
