@@ -1,0 +1,24 @@
+#!/bin/bash
+
+die () {
+	echo >&2 "$@"
+	exit 1
+}
+
+[ -z "$PERLBREW_ROOT" ] && die "PERLBREW_ROOT not set"
+[ -z "$PERLBREW_HOME" ] && die "PERLBREW_HOME not set"
+source ${PERLBREW_ROOT}/etc/bashrc
+
+unset PERL5LIB PERL_LOCAL_LIB_ROOT PERL_MB_OPT PERL_MM_OPT
+
+FAIL=
+
+for i in `perlbrew list | grep -o 'perl[-_0-9.a-z]*'`; do
+	perlbrew use "$i" || continue
+	echo "Trying $i..."
+	"$@"
+	# command failed - record
+	[ $? -ne 0 ] && FAIL="$FAIL $i($?)"
+done
+
+[ -n "$FAIL" ] && die "Command failed with perls$FAIL";
