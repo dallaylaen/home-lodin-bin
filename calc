@@ -1,0 +1,32 @@
+#!/usr/bin/perl -w
+
+use strict;
+use warnings FATAL=>'all'; 
+
+my $expr = join ' ', @ARGV;
+
+my $base = 1024;
+
+my %suff = (
+	k => $base ** 1,
+	m => $base ** 2,
+	g => $base ** 3,
+	t => $base ** 4,
+);
+
+$expr =~ s/((?:\d*\.)?\d+)([KMGT])/$1 * $suff{lc $2}/gei;
+
+if ($expr =~ /[^\+\-\*\/\d_\(\)\|\&\^\%\=\.\s]/) {
+	print "Wrong arithmetic expression\n";
+	exit (1);
+};
+
+my $res = eval "$expr";
+
+if (defined $res) {
+	print ("$res\n");
+} else {
+	print STDERR "Wrong arithmetic expression\n";
+	exit (2);
+};
+
