@@ -1,0 +1,15 @@
+#!/bin/sh
+
+PIC=$1
+SND=$2
+OUT=$3
+
+if [ -z "$OUT" ]; then
+    OUT=`echo "$SND" | sed s/\.[a-z0-9]*$/.mp4/`
+fi
+
+echo "$OUT"
+
+avconv -loop 1 -f image2 -i "$PIC" -i "$SND" -acodec copy -shortest "$OUT"
+
+# avconv -i input.mp3 -loop 1 -f image2 -i logo.png -r 30 -s 640x480 -ab 128k -ar 44100 -ac 1 -ss 00:00:00.000 -t 01:02:03.123 foo.ogv
