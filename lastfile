@@ -1,0 +1,13 @@
+#!/bin/sh
+
+DIR=$1
+if [ -z "$DIR" ]; then
+    DIR=.
+fi
+
+EXEC=$2
+if [ -z "$EXEC" ]; then
+    EXEC=echo
+fi
+
+$EXEC "$DIR/`ls -t "$DIR" | head -n 1`"
