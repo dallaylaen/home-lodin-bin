@@ -1,0 +1,10 @@
+#!/bin/sh
+
+pkill xbindkeys
+sleep 1
+BROWSER_H="firefox -P default"
+BROWSER_W="firefox -P work"
+export BROWSER_H BROWSER_W
+
+echo "Starting xbindkeys..."
+xbindkeys
