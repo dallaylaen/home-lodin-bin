@@ -1,0 +1,18 @@
+#!/bin/sh
+
+if [ -z "$1" ] || [ "$1" = "--help" ]; then
+	echo "Usage: $0 [--to x.yy] <perl_module> ..."
+	echo "This will update file's VERSION if found"
+	exit 1;
+fi
+
+if [ "$1" = "--to" ]; then
+	shift
+	VER=$1
+	shift
+	perl -w -i -p -e 's/^(our +\$VERSION *= *)(\d+\.\d+);$/${1}'"$VER"';/;' "$@"
+	exit
+fi 
+
+# finally... 
+perl -w -i -p -e 's/^(our +\$VERSION *= *)(\d+\.\d\d)(\d\d)?\d*;$/$x = $3 || "00"; $1 . $2 . ++$x.";"/e' "$@"
