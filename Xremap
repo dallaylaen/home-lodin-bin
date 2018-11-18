@@ -1,0 +1,19 @@
+#!/bin/sh
+
+MODE=$1
+
+case $MODE in
+    on)
+        echo "keycode 117 = Down NoSymbol Down" | xmodmap -
+        break;
+    ;;
+    off)
+        echo "keycode 117 = Next NoSymbol Next" | xmodmap -
+        break;
+    ;;
+    *)
+        echo "Usage: $0 <on|off>"
+        echo "Control emergency remap of PgDn to Down"
+        exit 1  
+    ;;
+esac
