@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# limit memory per process (kb)
+ulimit -d 1500000
+firefox -P home "$@"
