@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# data segment in kb
+ulimit -d 1500000
+
+chromium-browser
