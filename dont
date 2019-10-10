@@ -1,0 +1,9 @@
+#!/bin/sh
+
+echo -n >&2 "Run '$@'? (y/N) "
+read y
+if [ "$y" = 'y' ]; then
+    "$@"
+else
+    echo >&2 "Cancelled"
+fi
