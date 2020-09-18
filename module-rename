@@ -1,0 +1,34 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use File::Basename qw(dirname);
+
+sub cmd (@) {
+    print "# @_\n";
+    system @_;
+};
+
+# TODO getopt
+my $from_name = shift;
+my $to_name   = shift;
+
+$from_name =~ s,^lib/+,,;
+$from_name =~ s/\.pm$//;
+
+my $from = $from_name =~ s,\W+,(::|/|-),gr;
+my $to   = $to_name   =~ s,\W+,\$1,gr;
+
+warn "Rename: '$from' => '$to'";
+
+my $from_path = $from_name =~ s,\W+,/,gr;
+my $to_path   = $to_name   =~ s,\W+,/,gr;
+
+cmd mkdir => -p => dirname("lib/$to_path");
+cmd mv    => "lib/$from_path.pm" => "lib/$to_path.pm";
+cmd mv    => "lib/$from_path" => "lib/$to_path";
+
+system perl => -w => -i => -p => -e => qq{s{$from}{$to}g} => 
+    map { s/\n$//gr } qx{egrep -rl '$from' *};       
+
+
