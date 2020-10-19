@@ -1,0 +1,32 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use Getopt::Long;
+use File::Temp qw(tempfile);
+
+my $out;
+my %opt;
+
+GetOptions (
+    "-o=s"          => \$out,
+    "first-page=s"  => \$opt{dFirstPage},
+    "last-page=s"   => \$opt{dLastPage},
+) or die "Bad usage";
+
+defined $out or die "-o is required";
+
+my @main_opt = qw(
+    -sDEVICE=pdfwrite
+    -dNOPAUSE
+    -dBATCH
+);
+
+my @add_opt = map { "-$_=$opt{$_}" } grep { defined $opt{$_} } keys %opt;
+
+my (undef, $tmp) = tempfile('/tmp/pdf-cat-XXXXXXXXX', CLEANUP => 1);
+
+system gs => @main_opt => @add_opt => "-sOutputFile=$tmp" => @ARGV;
+
+# fix page numbering
+system pdfunite => $tmp => $out;
