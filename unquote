@@ -1,0 +1,5 @@
+#!/bin/sh
+
+perl -CSA -Mutf8 -wpe ' $_ = lc $_; s/["«»„“”]//g;'
+
+
