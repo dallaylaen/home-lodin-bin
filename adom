@@ -1,0 +1,40 @@
+#!/bin/sh
+
+set -e
+
+DIR=$HOME/games/adom
+SESSION=120
+SAVE=5
+PID=$$
+
+cd $DIR
+
+(
+    # don't play too long
+    # TODO lock
+
+    sleep $(( $SESSION * 60 )) # 2 hour session
+    [ $PPID = 1 ] && exit # player quit, good
+
+    kill -STOP $PPID
+    echo
+    echo "You've been playing gods for too long, mortal!"
+    echo "Have a rest."
+    echo
+    echo "When you're ready, type 'save' to save the game"
+    while read y; do
+        # if used is typing ferociously, swallow all input
+        [ "$y" == "save" ] && break
+    done
+    echo
+    echo "You'll have $SAVE  minutes to save and quit"
+    echo
+    sleep 10
+    kill -CONT $PPID
+    sleep $(( $SAVE * 60 ))
+    
+    [ $PPID = 1 ] && exit # player quit, good
+    kill -KILL $PPID
+)&
+
+exec ./adom
