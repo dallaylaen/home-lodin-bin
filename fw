@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# limit memory per-process in 1kB
+ulimit -d 2500000
+firefox "$@"
