@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# memory limit in kB
+ulimit -d 1800000
+
+/usr/bin/skypeforlinux
