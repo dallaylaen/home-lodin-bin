@@ -1,0 +1,18 @@
+#!/bin/sh
+
+SRC=$1
+shift
+
+COMPILER=gcc
+OPTIONS="-Wall -Wextra"
+
+if basename "$0" | grep -q pp; then
+    COMPILER=g++
+fi
+
+OUT=`mktemp /tmp/a.out-XXXXXXXXXX`
+
+$COMPILER $OPTIONS -o "$OUT" "$@" "$SRC" && "$OUT"
+RET=$?
+rm "$OUT"
+exit $RET
