@@ -1,0 +1,93 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use JSON::XS;
+use File::Slurper qw(read_text);
+use Getopt::Long;
+use File::Temp qw(tempfile);
+use POSIX qw(setlocale strftime);
+
+setlocale( POSIX::LC_ALL, 'C' );
+
+die "Uncommitted changes present"
+    if (in("git status --porcelain") ne "");
+
+# Using unparsed json to prevent extensive diffs
+my $json_content = read_text( 'package.json' );
+my ($json_head, $old, $json_tail) = 
+    $json_content =~ /^(.*\n *"version" *: *")(\d+(?:\.\d+)+)(",?\n.*)$/s;
+
+print "Found version: $old\n";
+
+# assuming semver
+my @semver = split /\./, $old;
+$semver[-1]++;
+my $new = join( ".", @semver );
+print "New version: $new\n";
+
+my $log = in( "git log --oneline" );
+$log =~ s/\n[a-f0-9]+ +\^_\^.*$//s;
+$log =~ s/^[a-f0-9]+ /    - /mg;
+
+my ($fd, $fname) = tempfile();
+
+print $fd "Changes for version $new:\n\n";
+print $fd $log;
+print $fd "\n";
+close $fd;
+run( "vim", $fname );
+
+my $date_ver = strftime( "%a %b %d %Y", gmtime(time) )." v$new\n";
+my $changes = read_text( $fname );
+$changes =~ s/^\w.*$//mg;
+$changes =~ s/\n\n+/\n/sg;
+$changes =~ s/^\n+//s;
+$changes =~ s/\n+$//s;
+
+my ($chlog_head, $chlog_tail) = read_text( 'Changes' ) =~ /^(#[^\n]*\n)*(.*$)/s;
+
+replace( 'Changes', "$chlog_head\n$date_ver$changes\n$chlog_tail" );
+replace( 'package.json', "$json_head$new$json_tail" );
+
+run( 'git diff | cat' );
+
+print "Release these changes? (y/N) ";
+my $reply = <STDIN>;
+chomp $reply;
+die "Release of version $new aborted"
+    if ($reply ne 'y');
+
+run( git => commit => -a => -m => "^_^ Version $new released" ); 
+run( git => tag => "v.$new" => -m => $changes );
+run( 'git push' );
+run( 'git push --tags' );
+# run( 'npm publish' );
+
+print "Version $new released. Now run `npm publish`.";
+
+sub replace {
+    my ($fname, @content) = @_;
+    print "+replace $fname\n";
+    open my $fd, ">", $fname
+        or die "Failed to open(w) $fname: $!";
+    print $fd @content
+        or die "Failed to write $fname: $!";
+    close $fd
+        or die "Failed to sync $fname: $!";
+}
+
+sub in {
+    print "+read @_\n";
+    my $out = qx(@_);
+    die "Command failed with status ". ($?>>8)
+        if ($?);
+    return $out;
+}
+
+sub run {
+    print "+run @_\n";
+    system @_;
+    die "Command failed with status ". ($?>>8)
+        if ($?);
+}
