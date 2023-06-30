@@ -1,0 +1,58 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use File::Basename qw(basename dirname);
+
+my $code = shift;
+help() if !$code or $code eq '--help';
+
+my $transform = eval "sub { local \$_ = shift; $code; \$_ }";
+
+my @todo;
+foreach my $i (@ARGV) {
+  my $dir = dirname $i;
+  my $src = basename $i;
+  my $dst = $transform->($src);
+  if (defined $dst and $dst ne $src) {
+    push @todo, [$dir, $src, $dst];
+  };
+};
+
+exit 1 unless @todo;
+
+foreach (@todo) {
+  my ($dir, $src, $dst) = @$_;
+  print qq{mv "$src" "$dst" in $dir\n};
+}
+
+print "Rename? (y/N) ";
+my $yes = <STDIN>;
+exit 1 unless ($yes =~ /^y/i);
+
+foreach (@todo) {
+  my ($dir, $src, $dst) = @$_;
+  rename "$dir/$src", "$dir/$dst"
+    or die "failed to rename $src -> $dst in $dir: $!";
+}
+
+sub help {
+  print "Usage: $0 <perl code of s/foo/bar> file file ...\n";
+  exit;
+};
+
+
+__END__
+
+for i in "$@"; do
+	DN="`dirname "$i"`"
+	FN="`basename "$i"`"
+	NN="`echo "$FN" | sed "$RE"`"
+
+	if [ "$NN" != "$FN" ]; then
+		#echo 
+		mv "$DN/$FN" "$DN/$NN"
+	fi
+done
+
+
