@@ -2,8 +2,12 @@
 
 use strict;
 use warnings;
-use POSIX qw(strftime);
+use POSIX qw( strftime setlocale );
 use Getopt::Long;
+use File::Temp qw(tempfile);
+use File::Slurper qw(read_text);
+
+setlocale( POSIX::LC_ALL, 'C' );
 
 my $want = 3;
 GetOptions (
@@ -52,8 +56,9 @@ cmd( "git checkout -b ".strftime( "%Y%m-$ver", localtime ) )
 my $sed = q{s/^\(our *$VERSION *= *\).*;$/\1'\''}.$ver.q{'\'';/};
 cmd( qq{find lib -name \*.pm | xargs sed -i '$sed' } );
 
-cmd( "vim -p Changes README.md" )
-    if $want < 3;
+my $changes = $want < 3 
+    ? make_changes("Changes", $ver) 
+    : 'Intermediate release';
 
 cmd( "git diff | cat" );
 print "Accept these changes for $ver (y/N)? ";
@@ -62,7 +67,7 @@ die "Commit aborted"
     unless $re and $re =~ /^y/;
 
 cmd( "git commit -a -m '^_^ Version $ver released NOCODE'" );
-cmd( "git tag v.$ver -m 'Experimental release'" );
+cmd( git => tag => "v.$ver" => -m => $changes );
 
 cmd( "perl Makefile.PL" );
 unlink "MANIFEST" or die "Failed to delete MANIFEST"
@@ -76,6 +81,14 @@ cmd( "git checkout -" )
 sub cmd {
     system @_;
     $? and die "Command failed: @_";
+};
+
+sub in {
+    print "+read @_\n";
+    my $out = qx(@_);
+    die "Command failed with status ". ($?>>8)
+        if ($?);
+    return $out;
 };
 
 sub inc_ver {
@@ -97,3 +110,41 @@ sub inc_ver {
     
     return sprintf $format, @ver;
 };
+
+sub make_changes {
+    my ($chfile, $ver) = @_;
+    my $log = in( "git log --pretty='    - %s'" );
+    $log =~ s/\n    - \^_\^.*$//s;
+
+    my ($fd, $fname) = tempfile();
+
+    print $fd "Changes for version $ver:\n\n";
+    print $fd $log;
+    print $fd "\n";
+    close $fd;
+    cmd( "vim", $fname );
+
+    my $date_ver = sprintf("%-7s %s", $ver, strftime( "%a %b %d %Y", gmtime(time)));
+    my $changes = read_text( $fname );
+    $changes =~ s/^\w.*$//mg;
+    $changes =~ s/\n\n+/\n/sg;
+    $changes =~ s/^\n+//s;
+    $changes =~ s/\n+$//s;
+
+    my ($chlog_head, $chlog_tail) = read_text( $chfile ) =~ /^(#[^\n]*\n)*(.*$)/s;
+
+    replace( 'Changes', "$chlog_head\n$date_ver$changes\n$chlog_tail" );
+    return $changes;
+};
+
+sub replace {
+    my ($fname, @content) = @_;
+    print "+replace $fname\n";
+    open my $fd, ">", $fname
+        or die "Failed to open(w) $fname: $!";
+    print $fd @content
+        or die "Failed to write $fname: $!";
+    close $fd
+        or die "Failed to sync $fname: $!";
+};
+
