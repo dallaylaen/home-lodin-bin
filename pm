@@ -10,7 +10,7 @@ die "Usage: $0 <Module::Name>\n"
 $mod =~ s@::@/@g;
 $mod =~ s@(\.pm)?$@.pm@;
 
-foreach (@INC) {
+foreach ('lib', '../lib', @INC) {
     -f "$_/$mod" or next;
     print "$_/$mod\n";
     exit 0;
