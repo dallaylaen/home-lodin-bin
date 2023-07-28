@@ -26,29 +26,7 @@ $semver[-1]++;
 my $new = join( ".", @semver );
 print "New version: $new\n";
 
-my $log = in( "git log --oneline" );
-$log =~ s/\n[a-f0-9]+ +\^_\^.*$//s;
-$log =~ s/^[a-f0-9]+ /    - /mg;
-
-my ($fd, $fname) = tempfile();
-
-print $fd "Changes for version $new:\n\n";
-print $fd $log;
-print $fd "\n";
-close $fd;
-run( "vim", $fname );
-
-my $date_ver = strftime( "%a %b %d %Y", gmtime(time) )." v$new\n";
-my $changes = read_text( $fname );
-$changes =~ s/^\w.*$//mg;
-$changes =~ s/\n\n+/\n/sg;
-$changes =~ s/^\n+//s;
-$changes =~ s/\n+$//s;
-
-my ($chlog_head, $chlog_tail) = read_text( 'Changes' ) =~ /^(#[^\n]*\n)*(.*$)/s;
-
-replace( 'Changes', "$chlog_head\n$date_ver$changes\n$chlog_tail" );
-replace( 'package.json', "$json_head$new$json_tail" );
+my $changes = make_changes();
 
 run( 'git diff | cat' );
 
@@ -91,3 +69,29 @@ sub run {
     die "Command failed with status ". ($?>>8)
         if ($?);
 }
+
+sub make_changes {
+    my $log = in( "git log --pretty='    - %s'" );
+    $log =~ s/\n    - \^_\^.*$//s;
+
+    my ($fd, $fname) = tempfile();
+
+    print $fd "Changes for version $new:\n\n";
+    print $fd $log;
+    print $fd "\n";
+    close $fd;
+    run( "vim", $fname );
+
+    my $date_ver = strftime( "%a %b %d %Y", gmtime(time) )." v$new\n";
+    my $changes = read_text( $fname );
+    $changes =~ s/^\w.*$//mg;
+    $changes =~ s/\n\n+/\n/sg;
+    $changes =~ s/^\n+//s;
+    $changes =~ s/\n+$//s;
+
+    my ($chlog_head, $chlog_tail) = read_text( 'Changes' ) =~ /^(#[^\n]*\n)*(.*$)/s;
+
+    replace( 'Changes', "$chlog_head\n$date_ver$changes\n$chlog_tail" );
+    replace( 'package.json', "$json_head$new$json_tail" );
+    return $changes;
+};
