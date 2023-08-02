@@ -1,0 +1,6 @@
+#!/bin/sh
+
+DATE=$(LC_ALL=C date)
+
+echo -n $DATE | xsel -i
+echo -n $DATE | xsel -i -b
