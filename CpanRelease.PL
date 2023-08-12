@@ -1,11 +1,12 @@
 #!/usr/bin/env perl
 
 use strict;
-use warnings;
+use warnings FATAL => qw(uninitialized);
 use POSIX qw( strftime setlocale );
 use Getopt::Long;
 use File::Temp qw(tempfile);
 use File::Slurper qw(read_text);
+use List::Util qw(first);
 
 setlocale( POSIX::LC_ALL, 'C' );
 
@@ -13,7 +14,7 @@ my $want = 3;
 GetOptions (
     "major" => sub { $want = 0 },
     "minor" => sub { $want = 1 },
-    "patch" => sub { $want = 2 }, 
+    "patch" => sub { $want = 2 },
     "help"  => \&usage,
 ) or die "Bad options";
 
@@ -39,6 +40,7 @@ die "git command failed" if $?;
 my @tags = `git tag`;
 
 @tags = map { /^v\.(\d+\.\d+)$/ ? $1 : () } map { s/_//g; $_ } @tags;
+@tags = ('0.00') unless @tags;
 
 my $lasttag = [sort { $b <=> $a } @tags]->[0];
 print "Latest release = $lasttag\n";
@@ -56,10 +58,15 @@ cmd( "git checkout -b ".strftime( "%Y%m-$ver", localtime ) )
 my $sed = q{s/^\(our *$VERSION *= *\).*;$/\1'\''}.$ver.q{'\'';/};
 cmd( qq{find lib -name \*.pm | xargs sed -i '$sed' } );
 
-my $changes = $want < 3 
-    ? make_changes("Changes", $ver) 
+my $changefile = first { -f } qw( Changes.md Changelog.md Changes Changelog );
+die "failed to find changelog"
+    unless $changefile;
+
+my $changes = $want < 3
+    ? make_changes($changefile, $ver)
     : 'Intermediate release';
 
+print "\n<!-- changes to be released -->\n";
 cmd( "git diff | cat" );
 print "Accept these changes for $ver (y/N)? ";
 my $re = <STDIN>;
@@ -95,8 +102,8 @@ sub inc_ver {
     my ($version, $todo) = @_;
 
     # TODO support 3-digits, too?
-    my @ver = $version =~ /^(\d+)\.(\d\d)(\d\d)?_?(\d\d)?$/
-        or die "Unsupported version format";
+    my @ver = $version =~ /^(\d+)\.(\d\d)(\d+)?_?(\d\d)?$/
+        or die "Unsupported version format: $version";
 
     die "Version overflow, do something"
         if ++$ver[$todo] >= 100;
@@ -107,7 +114,7 @@ sub inc_ver {
     my $format = "%d.%02d";
     $format .= "%02d" if @ver >=3;
     $format .= "_%02d" if @ver >=4;
-    
+
     return sprintf $format, @ver;
 };
 
@@ -124,16 +131,16 @@ sub make_changes {
     close $fd;
     cmd( "vim", $fname );
 
-    my $date_ver = sprintf("%-7s %s", $ver, strftime( "%a %b %d %Y", gmtime(time)));
+    my $date_ver = sprintf("- %-7s %s\n", $ver, strftime( "%a %b %d %Y", gmtime(time)));
     my $changes = read_text( $fname );
     $changes =~ s/^\w.*$//mg;
     $changes =~ s/\n\n+/\n/sg;
     $changes =~ s/^\n+//s;
     $changes =~ s/\n+$//s;
 
-    my ($chlog_head, $chlog_tail) = read_text( $chfile ) =~ /^(#[^\n]*\n)*(.*$)/s;
+    my ($chlog_head, $chlog_tail) = read_text( $chfile ) =~ /^((?:#[^\n]*\n)*)(.*$)/s;
 
-    replace( 'Changes', "$chlog_head\n$date_ver$changes\n$chlog_tail" );
+    replace( $chfile, "$chlog_head\n$date_ver$changes\n$chlog_tail" );
     return $changes;
 };
 
